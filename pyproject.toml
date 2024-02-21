@@ -1,0 +1,27 @@
+[tool.ruff]
+src = [".", "tests"]
+
+[tool.ruff.lint]
+ignore = [
+  "D100", "D101", "D103", "D104", "D105", "D107", "D203", "D211", "D212", "D213",
+  "INP001",
+  "RET504",
+  "S101",
+  "UP015",
+]
+select = ["ALL"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+multiline-quotes = "single"
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-third-party = ["htmd"]
+lines-after-imports = 2
+order-by-type = false
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
