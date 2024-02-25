@@ -6,6 +6,7 @@ from utils import receive_data
 def test_put_large(client: socket.socket) -> None:
     use_message = b'use foo\r\n'
     client.sendall(use_message)
+    receive_data(client, len(b'using foo\r\n'))
 
     expected = b'INSERTED 1\r\n'
     message = b'put 500 0 10 53\r\n'
@@ -22,6 +23,7 @@ def test_put_large(client: socket.socket) -> None:
 def test_put_too_big(client: socket.socket) -> None:
     use_message = b'use foo\r\n'
     client.sendall(use_message)
+    receive_data(client, len(b'using foo\r\n'))
 
     expected = b'JOB_TOO_BIG\r\n'
     message = b'put 500 0 10 20\r\n'
@@ -42,6 +44,7 @@ def test_put_without_crlf(client: socket.socket) -> None:
     # TODO: If the message contains everything except for \r\n how do you know you just haven't received \r\n yet?
     use_message = b'use foo\r\n'
     client.sendall(use_message)
+    receive_data(client, len(b'using foo\r\n'))
 
     expected = b'EXPECTED_CRLF\r\n'
     message = b'put 500 0 10 53\r\n01234567890123456789'

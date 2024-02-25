@@ -11,3 +11,13 @@ def test_use(client: socket.socket) -> None:
     amount_expected = len(expected)
     data = receive_data(client, amount_expected)
     assert data == expected
+
+
+def test_use_use(client: socket.socket) -> None:
+    expected = b'USING use\r\n'
+    message = b'use use\r\n'
+    client.sendall(message)
+
+    amount_expected = len(expected)
+    data = receive_data(client, amount_expected)
+    assert data == expected

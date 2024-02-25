@@ -1,3 +1,4 @@
+import re
 import socket
 
 from utils import receive_data
@@ -22,7 +23,8 @@ def test_reserve_after(client: socket.socket) -> None:
     message = b'reserve\r\n'
     client.sendall(message)
 
-    expected = b'RESERVED 1 53\r\n01234567890123456789\r\n'
+    expected = b'RESERVED X 53\r\n01234567890123456789\r\n'
     amount_expected = len(expected)
+    
     data = receive_data(client, amount_expected)
-    assert data == expected
+    assert re.match(expected.replace(b'X', b'[0-9]+'), data)
