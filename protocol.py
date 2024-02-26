@@ -1,6 +1,8 @@
 tubes = {}
 count_job = 0
 
+MAX_JOB_SIZE = 2 ** 16
+
 
 class Client:
     def __init__(self, connection, address) -> None:
@@ -68,25 +70,21 @@ def ensure_tube_without_client(tube: str, client: Client) -> None:
     tubes[tube]['clients'] = clients_without_new_address
 
 
-class BadMessage(Exception):
-    def __init__(self, message: str) -> None:
-        self.message = message
-
-
 class QuitMessage(Exception):
     pass
 
 
 def drop_connection(client: Client) -> None:
-    if client.watching:
-        # Remove client from tube
-        tubes[client.watching]['clients'] = [
-            c for c in tubes[client.watching]['clients']
+    # Remove client from tubes
+    for tube in client.watching:
+        tubes[tube]['clients'] = [
+            c for c in tubes[tube]['clients']
             if c.address != client.address
         ]
     if client.job:
         client.job.client = None
         client.job = None
+
 
 def add_job(tube: str, job: Job) -> int:
     global count_job
@@ -140,3 +138,19 @@ def ignore_message(message):
             return False
     else:
         return True
+
+
+async def try_to_issue_job(tube: str, issue_job) -> Client | None:
+    job = get_job_with_client(tube)
+    if job:
+        client = job.client
+        await issue_job(job)
+        return client
+    return None
+
+
+async def try_to_issue_job_to_client(client: Client, issue_job) -> None:
+    for tube in client.watching:
+        job_client = await try_to_issue_job(tube, issue_job)
+        if job_client == client:
+            break

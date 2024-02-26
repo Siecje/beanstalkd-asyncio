@@ -25,7 +25,6 @@ def test_reserve_after(client: socket.socket) -> None:
 
     expected = b'RESERVED X ' + str(len(job_body)).encode('utf-8') + b'\r\n' + job_body + b'\r\n'
     amount_expected = len(expected)
-    
-    print('before')
+
     data = receive_data(client, amount_expected)
     assert re.match(expected.replace(b'X', b'[0-9]+'), data)

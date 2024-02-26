@@ -7,15 +7,16 @@ import trio
 
 from protocol import (
     add_job,
-    BadMessage,
     Client,
     drop_connection,
     ensure_tube_has_client,
     ensure_tube_without_client,
-    get_job_with_client,
     ignore_message,
     Job,
+    MAX_JOB_SIZE,
     QuitMessage,
+    try_to_issue_job,
+    try_to_issue_job_to_client,
 )
 
 
@@ -26,28 +27,12 @@ logger.addHandler(handler)
 
 put_head_re = re.compile('put ([0-9]+) ([0-9]+) ([0-9]+) ([0-9]+)')
 
-MAX_JOB_SIZE = 2 ** 16
 
 async def issue_job(job: Job) -> None:
     job_size = len(job.body)
     message = f'RESERVED {job.id} {job_size}\r\n'
     to_send = message.encode('utf-8') + job.body + b'\r\n'
     await job.client.connection.send_all(to_send)
-
-
-async def try_to_issue_job(nursery, tube: str) -> bool:
-    job = get_job_with_client(tube)
-    if job:
-        nursery.start_soon(issue_job, job)
-        return True
-    return False
-
-
-async def try_to_issue_job_to_client(nursery, client: Client) -> None:
-    for tube in client.watching:
-        success = await try_to_issue_job(nursery, tube)
-        if success:
-            break
 
 
 def handle_message(nursery, client: Client, message: bytes) -> str | None:
@@ -74,15 +59,11 @@ def handle_message(nursery, client: Client, message: bytes) -> str | None:
         if not client.watching:
             msg = 'Error: `reserve` without watching a tube.'
             return msg
-        nursery.start_soon(try_to_issue_job_to_client, nursery, client)
+        nursery.start_soon(try_to_issue_job_to_client, client, issue_job)
         return
     if message.startswith(b'put '):
         head, body = message.split(b'\r\n')
         (pri, delay, ttr, num_bytes) = put_head_re.match(head.decode('utf-8')).groups()
-        if int(num_bytes) > 2 ** 16:
-            logger.debug(sys.getsizeof(body))
-            msg = "JOB_TOO_BIG\r\n"
-            return msg
         tube = client.using
         if tube is None:
             msg = 'Error: `put` without using a tube.'
@@ -91,7 +72,7 @@ def handle_message(nursery, client: Client, message: bytes) -> str | None:
         logger.debug('Job created.')
 
         job_id = add_job(tube, job)
-        nursery.start_soon(try_to_issue_job, nursery, tube)
+        nursery.start_soon(try_to_issue_job, tube, issue_job)
         return f'INSERTED {job_id}\r\n'
 
 

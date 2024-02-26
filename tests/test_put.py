@@ -3,7 +3,7 @@ import socket
 from utils import receive_data
 
 
-def test_put_large(client: socket.socket) -> None:
+def test_put(client: socket.socket) -> None:
     use_message = b'use foo\r\n'
     client.sendall(use_message)
     receive_data(client, len(b'using foo\r\n'))
