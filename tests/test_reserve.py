@@ -9,11 +9,11 @@ def test_reserve_after(client: socket.socket) -> None:
     client.sendall(use_message)
     receive_data(client, len(b'USING foo\r\n'))
 
-    message = b'put 500 0 10 53\r\n'
+    job_body = b'01234567890123456789'
+    message = b'put 500 0 10 ' + str(len(job_body)).encode('utf-8') + b'\r\n'
     client.sendall(message)
 
-    job_body = b'01234567890123456789\r\n'
-    client.sendall(job_body)
+    client.sendall(job_body + b'\r\n')
     receive_data(client, len(b'INSERTED X\r\n'))
 
     use_message = b'watch foo\r\n'
@@ -23,8 +23,9 @@ def test_reserve_after(client: socket.socket) -> None:
     message = b'reserve\r\n'
     client.sendall(message)
 
-    expected = b'RESERVED X 53\r\n01234567890123456789\r\n'
+    expected = b'RESERVED X ' + str(len(job_body)).encode('utf-8') + b'\r\n' + job_body + b'\r\n'
     amount_expected = len(expected)
     
+    print('before')
     data = receive_data(client, amount_expected)
     assert re.match(expected.replace(b'X', b'[0-9]+'), data)

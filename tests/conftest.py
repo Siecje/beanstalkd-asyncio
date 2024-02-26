@@ -8,7 +8,7 @@ import pytest
 
 @pytest.fixture(scope='session')
 def server():
-    cmd = [sys.executable, 'gofer.py']
+    cmd = [sys.executable, 'tree.py']
     for _ in range(500):
         try:
             task = subprocess.Popen(cmd)

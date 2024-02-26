@@ -14,23 +14,6 @@ put_head_re = re.compile('put ([0-9]+) ([0-9]+) ([0-9]+) ([0-9]+)')
 
 count_job = 0
 in_event_loop = set()
-tubes = {}
-
-
-class Client:
-    def __init__(self, connection: socket.socket, address: tuple[str, int]) -> None:
-        self.address = address
-        self.connection = connection
-        self.job = None
-        self.using = None
-        self.watching = []
-
-
-class Job:
-    def __init__(self, body: str) -> None:
-        self.client = None
-        self.body = body
-        self.id = None
 
 
 def issue_job(job: Job) -> None:
@@ -46,83 +29,11 @@ def issue_job(job: Job) -> None:
     task.add_done_callback(lambda _: in_event_loop.discard(task))
 
 
-def try_to_issue_job(tube: str) -> bool:
-    job = None
-    for j in tubes[tube]['jobs'].values():
-        if j.client is None:
-            job = j
-
-    if job is None:
-        return False
-
-    client = None
-    for c in tubes[tube]['clients']:
-        if c.job is None:
-            client = c
-
-    if client is None:
-        return False
-
-    try:
-        job.client = client
-        client.job = job
-
-        issue_job(job)
-    except Exception:
-        job.client = None
-        client.job = None
-        return False
-    else:
-        return True
-
 
 def try_to_issue_job_to_client(client: Client) -> None:
     for tube in client.watching:
         if try_to_issue_job(tube):
             break
-
-
-def add_job(tube: str, job: Job) -> int:
-    global count_job
-    count_job += 1
-    job.id = count_job
-    if tube in tubes:
-        tubes[tube]['jobs'][count_job] = job
-    else:
-        tubes[tube] = {'clients': [], 'jobs': {count_job: job}}
-
-    return count_job
-
-
-def ensure_tube_has_client(tube: str, client: Client) -> None:
-    if tube not in tubes:
-        tubes[tube] = {'clients': [client], 'jobs': {}}
-    else:
-        current_clients = tubes[tube]['clients']
-        clients_without_new_address = [
-            c for c in current_clients if c.address != client.address
-        ]
-        tubes[tube]['clients'] = [*clients_without_new_address, client]
-
-
-def ensure_tube_without_client(tube: str, client: Client) -> None:
-    if tube not in tubes:
-        return
-    
-    current_clients = tubes[tube]['clients']
-    clients_without_new_address = [
-        c for c in current_clients if c.address != client.address
-    ]
-    tubes[tube]['clients'] = clients_without_new_address
-
-
-class BadMessage(Exception):
-    def __init__(self, message: str) -> None:
-        self.message = message
-
-
-class QuitMessage(Exception):
-    pass
 
 
 def handle_message(client: Client, message: bytes) -> str | None:
