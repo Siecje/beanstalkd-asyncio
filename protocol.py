@@ -1,3 +1,6 @@
+import trio
+
+
 tubes = {}
 count_job = 0
 
@@ -18,6 +21,25 @@ class Job:
         self.client = None
         self.body = body
         self.id = None
+
+
+def delete_job(job: Job):
+    job_id = job.id
+    for tube in tubes:
+        if job_id in tubes[tube]['jobs']:
+            try:
+                tubes[tube]['jobs'][job_id].client.job = None
+            except AttributeError:
+                # tubes[tube]['jobs'][job_id].client is None
+                pass
+            tubes[tube]['jobs'][job_id].client = None
+            del tubes[tube]['jobs'][job_id]
+
+
+def get_job_by_id(job_id: int) -> Job | None:
+    for tube in tubes:
+        if job_id in tubes[tube]['jobs']:
+            return tubes[tube]['jobs'][job_id]
 
 
 def get_job_with_client(tube: str) -> Job | None:
@@ -144,13 +166,19 @@ async def try_to_issue_job(tube: str, issue_job) -> Client | None:
     job = get_job_with_client(tube)
     if job:
         client = job.client
-        await issue_job(job)
-        return client
+        success = await issue_job(job)
+        if success:
+            return client
+        else:
+            job.client.job = None
+            job.client = None
     return None
 
 
-async def try_to_issue_job_to_client(client: Client, issue_job) -> None:
+async def try_to_issue_job_to_client(client: Client, issue_job, job_given: trio.Event = None) -> None:
     for tube in client.watching:
         job_client = await try_to_issue_job(tube, issue_job)
-        if job_client == client:
+        if isinstance(job_client, Client) and job_client == client:
+            if job_given:
+                job_given.set()
             break
