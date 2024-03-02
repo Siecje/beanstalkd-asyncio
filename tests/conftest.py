@@ -23,8 +23,7 @@ def server():
     task.terminate()
 
 
-@pytest.fixture(scope='function')
-def client(server: None):
+def create_client_socket():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_address = ('localhost', 10000)
     for _ in range(5):
@@ -39,5 +38,18 @@ def client(server: None):
                 raise
         else:
             break
+    return sock
+
+
+@pytest.fixture(scope='function')
+def client(server: None):
+    sock = create_client_socket()
+    yield sock
+    sock.close()
+
+
+@pytest.fixture(scope='function')
+def client2(server: None):
+    sock = create_client_socket()
     yield sock
     sock.close()
