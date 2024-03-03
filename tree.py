@@ -17,6 +17,7 @@ from protocol import (
     Job,
     MAX_JOB_SIZE,
     QuitMessage,
+    release_job,
     try_to_issue_job,
     try_to_issue_job_to_client,
 )
@@ -54,6 +55,29 @@ async def reserve_with_timeout(client, time_s):
         await client.connection.send_all(to_send)
 
 
+async def try_to_release_job(client, job_id, priority, delay):
+    job = get_job_by_id(job_id)
+    if job and job.client and job.client == client:
+        if delay:
+            job.state = 'delayed'
+        job.priority = priority
+        release_job(job)
+        to_send = b'RELEASED\r\n'
+        await client.connection.send_all(to_send)
+        if delay:
+            await trio.sleep(delay)
+            job.state = 'ready'
+    else:
+        to_send = b'NOT_FOUND\r\n'
+        await client.connection.send_all(to_send)
+
+
+async def try_to_issue_job_after_delay(job: Job, delay, tube, issue_job):
+    await trio.sleep(delay)
+    job.state = 'ready'
+    await try_to_issue_job(tube, issue_job)
+
+
 def handle_message(nursery, client: Client, message: bytes) -> str | None:
     logger.debug('handle_message() %s', message)
     if message == b'quit':
@@ -89,16 +113,21 @@ def handle_message(nursery, client: Client, message: bytes) -> str | None:
         return
     if message.startswith(b'put '):
         head, body = message.split(b'\r\n')
-        (pri, delay, ttr, num_bytes) = put_head_re.match(head.decode('utf-8')).groups()
         tube = client.using
         if tube is None:
             msg = 'Error: `put` without using a tube.'
             return msg
-        job = Job(body)
-        logger.debug('Job created.')
-
+        (priority, delay, ttr, _num_bytes) = put_head_re.match(head.decode('utf-8')).groups()
+        job = Job(body, int(priority), int(ttr))
+        delay = int(delay)
+        if delay:
+            job.state = 'delayed'
         job_id = add_job(tube, job)
-        nursery.start_soon(try_to_issue_job, tube, issue_job)
+        logger.debug('Job created.')
+        if delay:
+            nursery.start_soon(try_to_issue_job_after_delay, job, delay, tube, issue_job)
+        else:
+            nursery.start_soon(try_to_issue_job, tube, issue_job)
         return f'INSERTED {job_id}\r\n'
     if message.startswith(b'delete '):
         job_id = int(message.replace(b'delete ', b'').strip())
@@ -110,6 +139,13 @@ def handle_message(nursery, client: Client, message: bytes) -> str | None:
             delete_job(job)
             return 'DELETED\r\n'
         return 'NOT_FOUND\r\n'
+    if message.startswith(b'release '):
+        _, job_id, pri, delay = message.split(b' ')
+        job_id = int(job_id)
+        pri = int(pri)
+        delay = int(delay)
+        nursery.start_soon(try_to_release_job, client, job_id, pri, delay)
+        return
 
 
 async def server(connection, nursery) -> None:
