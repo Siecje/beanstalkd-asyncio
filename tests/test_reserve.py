@@ -16,8 +16,8 @@ def test_reserve_after_put(client: socket.socket) -> None:
     client.sendall(job_body + b'\r\n')
     receive_data(client, len(b'INSERTED X\r\n'))
 
-    use_message = b'watch foo\r\n'
-    client.sendall(use_message)
+    watch_message = b'watch foo\r\n'
+    client.sendall(watch_message)
     receive_data(client, len(b'WATCHING 1\r\n'))
 
     message = b'reserve\r\n'
@@ -31,8 +31,8 @@ def test_reserve_after_put(client: socket.socket) -> None:
 
 
 def test_reserve_before_put(client: socket.socket, client2: socket.socket) -> None:
-    use_message = b'watch foo\r\n'
-    client.sendall(use_message)
+    watch_message = b'watch foo\r\n'
+    client.sendall(watch_message)
     receive_data(client, len(b'WATCHING 1\r\n'))
 
     message = b'reserve\r\n'

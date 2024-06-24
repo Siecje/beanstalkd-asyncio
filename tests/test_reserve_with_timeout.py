@@ -17,8 +17,8 @@ def test_reserve_with_timeout_after_put(client: socket.socket) -> None:
     client.sendall(job_body + b'\r\n')
     receive_data(client, len(b'INSERTED X\r\n'))
 
-    use_message = b'watch foo\r\n'
-    client.sendall(use_message)
+    watch_message = b'watch foo\r\n'
+    client.sendall(watch_message)
     receive_data(client, len(b'WATCHING 1\r\n'))
 
     message = b'reserve-with-timeout 10\r\n'
@@ -32,8 +32,8 @@ def test_reserve_with_timeout_after_put(client: socket.socket) -> None:
 
 
 def test_reserve_with_timeout_before_put(client: socket.socket, client2: socket.socket) -> None:
-    use_message = b'watch foo\r\n'
-    client.sendall(use_message)
+    watch_message = b'watch foo\r\n'
+    client.sendall(watch_message)
     receive_data(client, len(b'WATCHING 1\r\n'))
 
     message = b'reserve-with-timeout 10\r\n'
@@ -58,8 +58,8 @@ def test_reserve_with_timeout_before_put(client: socket.socket, client2: socket.
 
 
 def test_reserve_with_timeout_reached(client2: socket.socket) -> None:
-    use_message = b'watch zed\r\n'
-    client2.sendall(use_message)
+    watch_message = b'watch zed\r\n'
+    client2.sendall(watch_message)
     receive_data(client2, len(b'WATCHING 1\r\n'))
 
     message = b'reserve-with-timeout 10\r\n'

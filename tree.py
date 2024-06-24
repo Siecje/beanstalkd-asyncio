@@ -41,6 +41,11 @@ async def issue_job(job: Job) -> None:
         return False
     else:
         return True
+    # TODO: after issue_job need to a add a task that sleeps for job ttr
+    # TODO: and checks if the job has a client
+    # TODO: if so, set the job to ready and remove client
+    # TODO: if job has been released with delay then it will not have a client
+    # TODO: or add a job state "reserved"
 
 
 async def reserve_with_timeout(client, time_s):
@@ -53,6 +58,7 @@ async def reserve_with_timeout(client, time_s):
     if not job_given.is_set():
         to_send = b'TIMED_OUT\r\n'
         await client.connection.send_all(to_send)
+    # TODO: Need to know which job was issued to be able to add ttr task
 
 
 async def try_to_release_job(client, job_id, priority, delay):

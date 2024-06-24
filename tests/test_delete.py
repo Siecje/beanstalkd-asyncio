@@ -20,8 +20,8 @@ def test_delete(
     client.sendall(job_body + b'\r\n')
     receive_data(client, len(b'INSERTED X\r\n'))
 
-    use_message = b'watch pee\r\n'
-    client2.sendall(use_message)
+    watch_message = b'watch pee\r\n'
+    client2.sendall(watch_message)
     receive_data(client2, len(b'WATCHING 1\r\n'))
 
     message = b'reserve\r\n'
@@ -59,8 +59,8 @@ def test_delete_without_reserve(
     data = receive_data(client, len(b'INSERTED X\r\n'))
     job_id = data.replace(b'INSERTED ', b'').strip()
 
-    use_message = b'watch pee\r\n'
-    client2.sendall(use_message)
+    watch_message = b'watch pee\r\n'
+    client2.sendall(watch_message)
     receive_data(client2, len(b'WATCHING 1\r\n'))
 
     message = b'delete <id>\r\n'
@@ -89,8 +89,8 @@ def test_delete_reserve_by_other(
     client.sendall(job_body + b'\r\n')
     receive_data(client, len(b'INSERTED X\r\n'))
 
-    use_message = b'watch pee\r\n'
-    client2.sendall(use_message)
+    watch_message = b'watch pee\r\n'
+    client2.sendall(watch_message)
     receive_data(client2, len(b'WATCHING 1\r\n'))
 
     message = b'reserve\r\n'
@@ -132,8 +132,8 @@ def test_delete_after_ttr(
     client.sendall(job_body + b'\r\n')
     receive_data(client, len(b'INSERTED X\r\n'))
 
-    use_message = b'watch pee\r\n'
-    client2.sendall(use_message)
+    watch_message = b'watch pee\r\n'
+    client2.sendall(watch_message)
     receive_data(client2, len(b'WATCHING 1\r\n'))
 
     message = b'reserve\r\n'

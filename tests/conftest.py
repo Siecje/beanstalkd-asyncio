@@ -60,4 +60,3 @@ def client3(server: None):
     sock = create_client_socket()
     yield sock
     sock.close()
-

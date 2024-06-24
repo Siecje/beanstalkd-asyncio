@@ -1,5 +1,6 @@
 import re
 import socket
+import time
 
 from utils import receive_data
 
@@ -53,4 +54,39 @@ def test_put_without_crlf(client: socket.socket) -> None:
 
     amount_expected = len(expected)
     data = receive_data(client, amount_expected)
+    assert data == expected
+
+
+def test_put_with_timeout(client, client2):
+    watch_message = b'watch test_put_with_timeout\r\n'
+    client.sendall(watch_message)
+    receive_data(client, len(b'WATCHING 1\r\n'))
+
+    message = b'reserve\r\n'
+    client.sendall(message)
+
+    use_message = b'use test_put_with_timeout\r\n'
+    client2.sendall(use_message)
+    receive_data(client2, len(b'using test_put_with_timeout\r\n'))
+
+    job_body = b'01234567890123456789'
+    job_time = 10
+    message = b'put 500 10 10 ' + str(len(job_body)).encode('utf-8') + b'\r\n' + job_body + b'\r\n'
+
+    expected = b'RESERVED X ' + str(len(job_body)).encode('utf-8') + b'\r\n' + job_body + b'\r\n'
+    amount_expected = len(expected)
+    
+    client2.sendall(message)
+
+    start_time = time.time()
+    # Should fail if client waits longer than timeout_s
+    timeout_s = 11
+    data = receive_data(client, amount_expected, timeout_s)
+    end_time = time.time()
+    # This times when the full job has been received
+    # This doesn't time when the job is first send
+    assert (job_time - 1) < (end_time - start_time) < (job_time + 1)
+    put_response = receive_data(client2, len(b'INSERTED X\r\n'))
+    job_id = put_response.replace(b'INSERTED ', b'').strip()
+    expected = expected.replace(b'X', job_id)
     assert data == expected
