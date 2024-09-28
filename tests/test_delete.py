@@ -151,6 +151,11 @@ def test_delete_after_ttr(
     message = message.replace(b'<id>', job_id)
     client2.sendall(message)
 
+    expected = b'DEADLINE_SOON\r\n'
+    amount_expected = len(expected)
+    data = receive_data(client2, amount_expected)
+    assert data == expected
+
     expected = b'DELETED\r\n'
     amount_expected = len(expected)
     data = receive_data(client2, amount_expected)

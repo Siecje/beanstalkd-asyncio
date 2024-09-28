@@ -1,5 +1,5 @@
-import subprocess
 import socket
+import subprocess
 import sys
 import time
 
@@ -42,21 +42,21 @@ def create_client_socket():
 
 
 @pytest.fixture(scope='function')
-def client(server: None):
+def client(server):
     sock = create_client_socket()
     yield sock
     sock.close()
 
 
 @pytest.fixture(scope='function')
-def client2(server: None):
+def client2(server):
     sock = create_client_socket()
     yield sock
     sock.close()
 
 
 @pytest.fixture(scope='function')
-def client3(server: None):
+def client3(server):
     sock = create_client_socket()
     yield sock
     sock.close()

@@ -7,6 +7,7 @@ import trio
 
 from protocol import (
     add_job,
+    check_job_ttr,
     Client,
     delete_job,
     drop_connection,
@@ -41,24 +42,24 @@ async def issue_job(job: Job) -> None:
         return False
     else:
         return True
-    # TODO: after issue_job need to a add a task that sleeps for job ttr
-    # TODO: and checks if the job has a client
-    # TODO: if so, set the job to ready and remove client
-    # TODO: if job has been released with delay then it will not have a client
-    # TODO: or add a job state "reserved"
 
 
-async def reserve_with_timeout(client, time_s):
+async def reserve_with_timeout(client, time_s, parent_nursery):
     job_given = trio.Event()
     async with trio.open_nursery() as nursery:
-        nursery.start_soon(try_to_issue_job_to_client, client, issue_job, job_given)
+        nursery.start_soon(
+            try_to_issue_job_to_client,
+            client,
+            issue_job,
+            parent_nursery,
+            job_given,
+        )
         with trio.move_on_after(time_s):
             await job_given.wait()
         nursery.cancel_scope.cancel()
     if not job_given.is_set():
         to_send = b'TIMED_OUT\r\n'
         await client.connection.send_all(to_send)
-    # TODO: Need to know which job was issued to be able to add ttr task
 
 
 async def try_to_release_job(client, job_id, priority, delay):
@@ -81,7 +82,9 @@ async def try_to_release_job(client, job_id, priority, delay):
 async def try_to_issue_job_after_delay(job: Job, delay, tube, issue_job):
     await trio.sleep(delay)
     job.state = 'ready'
-    await try_to_issue_job(tube, issue_job)
+    client = await try_to_issue_job(tube, issue_job)
+    if client:
+        await check_job_ttr(job)
 
 
 def handle_message(nursery, client: Client, message: bytes) -> str | None:
@@ -109,13 +112,13 @@ def handle_message(nursery, client: Client, message: bytes) -> str | None:
             msg = 'Error: `reserve` without watching a tube.'
             return msg
         time_s = int(message.replace(b'reserve-with-timeout ', b'').strip())
-        nursery.start_soon(reserve_with_timeout, client, time_s)
+        nursery.start_soon(reserve_with_timeout, client, time_s, nursery)
         return
     if message.startswith(b'reserve'):
         if not client.watching:
             msg = 'Error: `reserve` without watching a tube.'
             return msg
-        nursery.start_soon(try_to_issue_job_to_client, client, issue_job)
+        nursery.start_soon(try_to_issue_job_to_client, client, issue_job, nursery)
         return
     if message.startswith(b'put '):
         head, body = message.split(b'\r\n')
@@ -154,7 +157,7 @@ def handle_message(nursery, client: Client, message: bytes) -> str | None:
         return
 
 
-async def server(connection, nursery) -> None:
+async def on_connection(connection, nursery) -> None:
     address = connection.socket.getsockname()
     client = Client(connection, address)
     
@@ -220,8 +223,11 @@ async def server(connection, nursery) -> None:
 
 async def main() -> None:
     async with trio.open_nursery() as nursery:
-        server_task = functools.partial(server, nursery=nursery)
-        nursery.start_soon(trio.serve_tcp, server_task, 10_000)
+        server_task = functools.partial(on_connection, nursery=nursery)
+        # nursery.start_soon(trio.serve_tcp, server_task, 10_000)
+        listener = await nursery.start(trio.serve_tcp, server_task, 10_000)
+        print(f"Server is running and ready to accept connections on {listener[0].socket.getsockname()}")
+
 
 
 if __name__ == '__main__':

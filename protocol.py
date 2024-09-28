@@ -43,7 +43,6 @@ def delete_job(job: Job) -> None:
                     # tubes[tube]['jobs'][job_id].client is None
                     pass
                 j.client = None
-                del j
                 del tubes[tube]['jobs'][idx]
                 return
 
@@ -193,13 +192,35 @@ async def try_to_issue_job(tube: str, issue_job) -> Client | None:
         return None
 
 
-async def try_to_issue_job_to_client(client: Client, issue_job, job_given: trio.Event = None) -> None:
+async def check_job_ttr(job: Job) -> None:
+    await trio.sleep(job.ttr)
+    if job.client:
+        # job is current reserved by client
+        try:
+            await job.client.connection.send_all(b'DEADLINE_SOON\r\n')
+            await trio.sleep(1)
+            await job.client.connection.send_all(b'TIMED_OUT\r\n')
+        except (AttributeError, trio.ClosedResourceError):
+            # job.client.connection is None
+            pass
+        else:
+            release_job(job)
+            job.state = 'ready'
+
+
+async def try_to_issue_job_to_client(client: Client, issue_job, nursery, job_given: trio.Event = None) -> None:
     for tube in client.watching:
         job_client = await try_to_issue_job(tube, issue_job)
         if isinstance(job_client, Client) and job_client == client:
             if job_given:
+                # Used by reserve_with_timeout
                 job_given.set()
             break
+    try:
+        nursery.start_soon(check_job_ttr, job_client.job)
+    except AttributeError:
+        # job_client.job is None
+        pass
 
 
 def release_job(job: Job):
